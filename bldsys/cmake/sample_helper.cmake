@@ -36,7 +36,7 @@ function(add_sample)
         TAGS 
             "any"
         FILES
-            ${SRC_FILES}
+            ${TARGET_FILES}
         LIBS
             ${TARGET_LIBS}
         SHADER_FILES_GLSL
@@ -49,8 +49,6 @@ function(add_sample_with_tags)
     set(multiValueArgs TAGS FILES LIBS SHADER_FILES_GLSL)
 
     cmake_parse_arguments(TARGET "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-
-    list(APPEND TARGET_TAGS "any")
 
     set(SRC_FILES
         ${TARGET_ID}.h
