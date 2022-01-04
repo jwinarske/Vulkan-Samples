@@ -23,6 +23,26 @@ link_directories(/home/joel/development/engine/src/out/host_debug_unopt)
 
 add_sample(
     ID ${FOLDER_NAME}
+    FILES
+        flutter/json_message_codec.cc
+        flutter/json_method_codec.cc
+        flutter/log_settings.cc
+        flutter/log_settings_state.cc
+        flutter/logging.cc
+        flutter/standard_codec.cc
+        flutter/shell/platform/common/text_input_model.cc
+        flutter/fml/platform/linux/paths_linux.cc
+        flutter/fml/platform/posix/file_posix.cc
+        flutter/fml/platform/posix/paths_posix.cc
+        flutter/fml/platform/posix/posix_wrappers_posix.cc
+        flutter/fml/platform/posix/shared_mutex_posix.cc
+#        flutter/fml/command_line.cc
+        flutter/fml/file.cc
+        flutter/fml/log_settings.cc
+        flutter/fml/log_settings_state.cc
+        flutter/fml/logging.cc
+        flutter/fml/paths.cc
+        flutter/fml/unique_fd.cc
     LIBS
         flutter_engine
     CATEGORY ${CATEGORY_NAME}
@@ -34,4 +54,5 @@ add_sample(
         "triangle.frag"
     )
 
+target_include_directories(${FOLDER_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(${FOLDER_NAME} PUBLIC VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1 VULKAN_HPP_TYPESAFE_CONVERSION=1)

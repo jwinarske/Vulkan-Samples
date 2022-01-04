@@ -169,6 +169,8 @@ class flutter : public vkb::Application
 		intptr_t vsync_baton = 0;
 
 		pthread_t event_loop_thread_;
+
+		std::map<std::string, FlutterPlatformMessageCallback> platform_message_handlers;
 	};
 
   public:
@@ -217,6 +219,8 @@ class flutter : public vkb::Application
 	void teardown_framebuffers(Context &context);
 
 	void teardown(Context &context);
+
+	Context *get_context() { return &context; }
 
   private:
 	Context context;

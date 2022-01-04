@@ -25,6 +25,11 @@
 #include "platform/filesystem.h"
 #include "platform/platform.h"
 
+#include "channel/isolate.h"
+#include "channel/navigation.h"
+#include "channel/platform.h"
+#include "channel/restoration.h"
+
 namespace flutter
 {
 
@@ -359,6 +364,9 @@ void flutter::init_per_frame(Context &ctx, PerFrame &per_frame)
 
 	vk::CommandBufferAllocateInfo cmd_buf_info(per_frame.primary_command_pool, vk::CommandBufferLevel::ePrimary, 1);
 	per_frame.primary_command_buffer = ctx.device.allocateCommandBuffers(cmd_buf_info).front();
+
+	per_frame.swapchain_acquire_semaphore = ctx.device.createSemaphore({});
+	per_frame.swapchain_release_semaphore = ctx.device.createSemaphore({});
 
 	per_frame.device      = ctx.device;
 	per_frame.queue_index = ctx.graphics_queue_index;
@@ -809,7 +817,6 @@ vk::Result flutter::acquire_next_image(Context &ctx, uint32_t *image)
 vk::Result flutter::present_image(Context &ctx, uint32_t index)
 {
 	vk::PresentInfoKHR present(ctx.per_frame[index].swapchain_release_semaphore, ctx.swapchain, index);
-	// Present swapchain image
 	return ctx.queue.presentKHR(present);
 }
 
@@ -922,8 +929,16 @@ void flutter::PlatformMessageCallback(
     const FlutterPlatformMessage *message, void *user_data)
 {
 	auto obj = static_cast<flutter *>(user_data);
-	LOGI("PlatformMessageCallback: [{}] {}-{}", message->channel, message->message_size, message->message);
-	obj->context.engine_proc_table_.SendPlatformMessageResponse(obj->context.engine_, message->response_handle, nullptr, 0);
+
+	auto callback = obj->context.platform_message_handlers[message->channel];
+    if(callback) {
+		callback(message, user_data);
+	} else {
+		std::string msg(reinterpret_cast<const char*>(message->message));
+		msg.resize(message->message_size);
+		LOGI("PlatformMessage: [{}] ({}) \"{}\"", message->channel, message->message_size, msg);
+		obj->context.engine_proc_table_.SendPlatformMessageResponse(obj->context.engine_, message->response_handle, nullptr, 0);
+	}
 }
 
 flutter::flutter()
@@ -1090,16 +1105,27 @@ bool flutter::prepare(vkb::Platform &platform)
 	context.project_args_.platform_message_callback =
 	    [](const FlutterPlatformMessage *message, void *user_data) {
 		    auto obj = static_cast<flutter *>(user_data);
-		    obj->PlatformMessageCallback(message, user_data);
+
+		    auto callback = obj->context.platform_message_handlers[message->channel];
+		    if(callback) {
+			    callback(message, user_data);
+		    } else {
+			    std::string msg(reinterpret_cast<const char*>(message->message));
+			    msg.resize(message->message_size);
+			    LOGI("PlatformMessage: [{}] ({}) \"{}\"", message->channel, message->message_size, msg);
+			    obj->context.engine_proc_table_.SendPlatformMessageResponse(obj->context.engine_, message->response_handle, nullptr, 0);
+		    }
 	    };
 	context.project_args_.on_pre_engine_restart_callback =
 	    [](void *user_data) {
 		    LOGI("on pre engine restart");
 	    };
+#if 0
 	context.project_args_.root_isolate_create_callback =
 	    [](void *user_data) {
 		    LOGI("root isolate created");
 	    };
+#endif
 #if 0
 	context.project_args_.vsync_callback =
 	    [](void *user_data, intptr_t baton) {
@@ -1182,6 +1208,11 @@ bool flutter::prepare(vkb::Platform &platform)
 
 		return true;
 	};
+
+	context.platform_message_handlers.emplace("flutter/isolate", MessageCallback_ChannelIsolate);
+	context.platform_message_handlers.emplace("flutter/restoration", MessageCallback_ChannelRestoration);
+	context.platform_message_handlers.emplace("flutter/platform", MessageCallback_ChannelPlatform);
+	context.platform_message_handlers.emplace("flutter/navigation", MessageCallback_ChannelNavigation);
 
 	if (kSuccess != context.engine_proc_table_.Run(FLUTTER_ENGINE_VERSION,
 	                                               &context.renderer_config_,
